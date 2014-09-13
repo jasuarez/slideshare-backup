@@ -1,0 +1,82 @@
+#!/usr/bin/python
+
+import argparse
+import os
+import slideshare
+import urllib
+
+__author__ = 'Juan A. Suarez Romero <jasuarez@igalia.com>'
+
+API_KEY = 'zroWhsdO'
+API_SECRET = 'w8Ud8rMk'
+
+SLIDESHOW_TYPE = ["Presentations", "Documents", "Portfolios", "Videos"]
+SLIDESHOW_TAGS = 'Tags'
+
+def make_slideshow_directory(name):
+    if os.path.exists(name):
+        i = 1
+        while True:
+            new_name = name + " (" + str(i) + ")"
+            if not os.path.exists(new_name):
+                break
+            i = i + 1
+    else:
+        new_name = name
+    os.makedirs(new_name)
+    return new_name
+
+parser = argparse.ArgumentParser(description='Make a backup of a SlideShare account')
+parser.add_argument('account', nargs=1, help='account to backup')
+parser.add_argument('-o', '--output', help='output directory')
+args = parser.parse_args()
+
+if args.output:
+    if not os.path.exists(args.output):
+        os.makedirs(args.output)
+    os.chdir(args.output)
+
+slideshare_api = slideshare.SlideshareAPI(API_KEY, API_SECRET)
+
+user_slides = slideshare_api.get_slideshows_by_user (username_for = args.account[0],
+                                                     detailed = 1)
+
+total_slides = int(user_slides['User']['Count'])
+slide_number = 1
+top_dir = os.getcwd()
+
+if total_slides == 0:
+    print("No slideshows for user \"%s\"" % args.account[0])
+    exit(1)
+
+for slide in user_slides['User']['Slideshow']:
+    slideshow_type = SLIDESHOW_TYPE[int(slide['SlideshowType'])]
+    slideshow_title = slide['Title']
+
+    print("Fetching \"%s\" (%d/%d) ..." % (slideshow_title, slide_number, total_slides))
+    slide_number = slide_number + 1
+
+    # Create directory to store slideshow
+    slideshow_directory = make_slideshow_directory(os.path.join(slideshow_type, slideshow_title))
+
+    # Add a description file
+    with open(os.path.join(slideshow_directory, "description.txt"), "w") as description:
+        description.write(slide['Description'].encode('utf-8'))
+
+    # Download slideshow
+    urllib.urlretrieve(slide['DownloadUrl'], os.path.join (slideshow_directory, slide['PPTLocation'] + "." + slide['Format']))
+
+    # Create proper links in tags
+    if isinstance(slide['Tags']['Tag'], list):
+        tags = slide['Tags']['Tag']
+    else:
+        tags = [slide['Tags']['Tag']]
+
+    for tag in tags:
+        tag_directory = os.path.join(SLIDESHOW_TAGS, tag['#text'])
+        if not os.path.exists(tag_directory):
+            os.makedirs(tag_directory)
+
+        os.chdir(tag_directory)
+        os.symlink(os.path.join('..', '..', slideshow_directory), os.path.basename(slideshow_directory))
+        os.chdir(top_dir)
