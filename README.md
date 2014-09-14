@@ -14,7 +14,7 @@ It also classifies all the slideshows based on the tags, so it is easier to brow
 Usage
 -----
 
-```slideshare-backup [-o <direcotory>] <account>```
+```slideshare-backup [-o <directory>] <account>```
 
 
 Requirements
